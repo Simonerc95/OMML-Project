@@ -12,6 +12,8 @@ import numpy as np
 from scipy.optimize import minimize
 
 
+
+
 def hyperbolic_tangent(x, sigma=1):
     return (np.exp(2*sigma*x) - 1) / (np.exp(2*sigma*x) + 1)
 
@@ -156,20 +158,14 @@ def random_search(model, df, params, iterations=40, seed=1679838, print_=False):
 
 
 
-def get_opt(model, n, sigma, rho, df):
-    print_ = True
-    best_loss = np.inf
-    best_params = {}
+def get_opt(model, n, sigma, rho, df, print_=False):
+    params = {'N': n, 'rho': rho, 'sigma': sigma}
 
     perceptron = model(df=df, N=n, rho=rho, sigma=sigma)
     perceptron.fit(print_=print_)
-    current_loss = perceptron._compute_loss(perceptron.W, perceptron.v, perceptron.b,  'valid')
-    if current_loss < best_loss:
-        best_params['N'] = n
-        best_params['rho'] = rho
-        best_params['sigma'] = sigma
-        best_loss = current_loss
-    return {'param' : best_params, 'loss' : best_loss}    
+    loss = perceptron._compute_loss(perceptron.W, perceptron.v, perceptron.b,  'valid')
+
+    return {'param' : params, 'loss' : loss, 'weights': {'W': perceptron.W, 'v': perceptron.v, 'b': perceptron.b}}
 
 def get_loss(model, loss_type):
     if loss_type == 'train':

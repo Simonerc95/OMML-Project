@@ -5,8 +5,8 @@ import numexpr as ne
 import time
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
-from joblib import Parallel, delayed
 
+maxthreads = 20
 
 def rbf_scores(X, c, v, sigma):
     X_norm = np.sum(X ** 2, axis=-1)
@@ -52,8 +52,8 @@ class RBF:
 
         self.Loss_list = []
 
-    def fit(self, method='BFGS', maxiter=2000, disp=True, print_=False):
-
+    def fit(self, method='BFGS', maxiter=2000, disp=True, print_=True):
+        np.random.RandomState(self.seed)
         t = time.time()
         vec = self._to_vec()
 
@@ -66,7 +66,9 @@ class RBF:
             print(f'Loss:{self.minimize_obj["fun"]}')
 
 
+
     def _compute_loss(self, C, v, dataset, loss_reg=False):
+
         sigma = self.sigma
         rho = self.rho
 
@@ -120,46 +122,42 @@ class RBF:
 
 
 params = {
-    'N_vals': list(range(20, 50, 1)),
-    'sigma_vals': np.arange(.5, 1.5, .1),
+    'N_vals': list(range(30, 55, 1)),
+    'sigma_vals': np.arange(.6, 1.2, .1),
     'rho_vals': [1e-5, 1e-4, 1e-3]}
 
 
-def random_search(model, df, params, iterations=100, seed=1679838, print_=False):
+def random_search(model, df, params, iterations=2, seed=1679838, print_=True):
     np.random.seed(seed)
     combinations = np.array(list(product(*params.values())))
-
     np.random.shuffle(combinations)
     combinations = combinations[:iterations]
     assert iterations <= len(combinations), 'iterations exceeded number of combinations'
     t = time.time()                                # x[0] = N, x[1] = sigma, x[2] = rho
-    res = np.apply_along_axis(lambda x: get_opt(model, int(x[0]), x[1], x[2], df), 1, combinations)
+    res = np.apply_along_axis(lambda x: get_opt(model, int(x[0]), x[1],x[2], df), 1, combinations)
     print(f"Total time: {time.time() - t}")
     best_loss = np.inf
     idx = None
     for i, row in enumerate(res):
         if row['loss'] < best_loss:
             idx = i
+
             best_loss = row['loss']
     print('Best loss:', res[idx]['loss'], '\nBest params:', res[idx]['param'])
 
     return res[idx]
 
 
-def get_opt(model, n, sigma, rho, df):
-    print_ = True
-    best_loss = np.inf
-    best_params = {}
-
+def get_opt(model, n, sigma, rho, df, print_=True):
+    params = {}
+    params['N'] = n
+    params['rho'] = rho
+    params['sigma'] = sigma
     network = model(df=df, N=n, rho=rho, sigma=sigma)
     network.fit(print_=print_)
-    current_loss = network._compute_loss(network.C, network.v, 'valid')
-    if current_loss < best_loss:
-        best_params['N'] = n
-        best_params['rho'] = rho
-        best_params['sigma'] = sigma
-        best_loss = current_loss
-    return {'param': best_params, 'loss': best_loss}
+    loss = network._compute_loss(network.C, network.v, 'valid')
+
+    return {'param': params, 'loss': loss, 'weights': {'C':network.C, 'v':network.v}}
 
 
 def get_loss(model, loss_type):

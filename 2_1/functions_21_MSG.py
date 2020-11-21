@@ -71,6 +71,13 @@ class MLP:
             print(f'Time: {time.time() - t}')
             print(f'Loss:{self.minimize_obj["fun"]}')
 
+    def extreme_learning(self, method='bfgs', maxiter=1000, disp=False):
+        random_W = np.random.normal(loc=0., scale=1. / self.N, size=(self.N, self.n))  # N x n
+        random_b = np.random.normal(loc=0., scale=1. / self.N, size=(self.N, 1))  # N x 1
+
+        pass
+
+
     def _compute_loss(self, W, v, b, dataset, loss_reg=False):
         sigma = self.sigma
         rho = self.rho
@@ -138,27 +145,6 @@ params = {
     'rho_vals': [1e-5, 1e-3, 1e-4]}
 
 
-def random_search(model, df, params, iterations=40, seed=1679838, print_=False):
-    np.random.seed(seed)
-    combinations = np.array(list(product(*params.values())))
-
-    np.random.shuffle(combinations)
-    combinations = combinations[:iterations]
-    assert iterations <= len(combinations), 'iterations exceeded number of combinations'
-    t = time.time()
-    res = np.apply_along_axis(lambda x: get_opt(model, int(x[0]), x[1], x[2], df), 1, combinations)
-    print(f"Total time: {time.time() - t}")
-    best_loss = np.inf
-    idx = None
-    for i, row in enumerate(res):
-        if row['loss'] < best_loss:
-            idx = i
-            best_loss = row['loss']
-    print('Best loss:', res[idx]['loss'], '\nBest params:', res[idx]['param'])
-
-    return res[idx]
-
-
 def get_opt(model, n, sigma, rho, df):
     print_ = True
     best_loss = np.inf
@@ -205,4 +191,4 @@ def get_plot(net):
     ax.plot_surface(x_1, x_2, z_.reshape(x_1.shape), rstride=1, cstride=1,
                     cmap='gist_rainbow_r', edgecolor='none')
     ax.set_title('surface')
-    plt.savefig('out_11', dpi=100)
+    plt.savefig('out_21', dpi=100)

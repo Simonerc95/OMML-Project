@@ -61,8 +61,8 @@ class MLP:
 
 
     def extreme_learning(self, num_iter=100):
-        random_W = np.random.normal(0, 3, size=(self.N, self.n, num_iter))  # N x n
-        random_b = np.random.uniform(-3, 3, size=(self.N, 1, num_iter))  # N x 1
+        random_W = np.random.normal(size=(self.N, self.n, num_iter))  # N x n
+        random_b = np.random.normal(size=(self.N, 1, num_iter))  # N x 1
 
         best_loss = np.inf
         t = time.time()

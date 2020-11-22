@@ -47,8 +47,8 @@ class RBF:
         self.y_test = self.test_data.iloc[:, 2].to_numpy()
 
         self.n = self.X_train.shape[1]
-        self.C = np.random.normal(loc=0., scale=1. / self.N, size=(self.N, self.n))  # N x n
-        self.v = np.random.normal(loc=0., scale=1. / self.N, size=(self.N, 1))  # N x 1
+        self.C = np.random.normal(loc=0., scale=2. / self.N, size=(self.N, self.n))  # N x n
+        self.v = np.random.normal(loc=0., scale=2. / self.N, size=(self.N, 1))  # N x 1
         self.C_temp = self.C
         self.Loss_list = []
 
@@ -68,20 +68,18 @@ class RBF:
             
             
     def extreme_learning(self, method='bfgs', num_iter=100, maxiter=1000, disp=False):
-        random_C = np.random.normal(loc=0., scale= 1, size=(self.N, self.n, num_iter))  # N x n x num_iter
-        random_v = np.random.normal(loc=0., scale= 1, size=(self.N, 1, num_iter))  # N x 1 x num_iter
+        random_C = np.random.normal(scale=2, size=(self.N, self.n, num_iter))  # N x n x num_iter
+
         best_loss = np.inf
         t = time.time()
         for c in range(num_iter):
             self.C_temp = random_C[:,:,c].reshape(self.N, self.n)
-            v = random_v[:,:,c].reshape(self.N, )
-            
-            opt = minimize(self._optimize, v, jac=self.grad, method='bfgs' )
-            
-            if opt.fun < best_loss:
+            v = self.opt_v()
+            current_loss = self._optimize(v)
+            if current_loss < best_loss:
                 self.C = self.C_temp
-                self.v = opt.x
-                best_loss = opt.fun
+                self.v = v
+                best_loss = current_loss
         print(f'Total time for Extreme learning: {time.time()-t}')
         print(f'Best loss: {best_loss}')
            
@@ -114,9 +112,11 @@ class RBF:
         else:
             return Loss
         
-    def grad(self, v):
+
+
+    def opt_v(self):
         g_x = rbf_scores(self.X_train, self.C_temp, self.sigma)
-        return 2 * (g_x.T.dot(g_x) + self.rho * np.identity(self.N)).dot(v) - 2*g_x.T.dot(self.y_train)
+        return np.dot(np.linalg.pinv(g_x), self.y_train)
 
     def predict(self, X):
         return rbf_scores(X, self.C, self.sigma).dot(self.v)
@@ -217,4 +217,4 @@ def get_plot(net):
     ax.plot_surface(x_1, x_2, z_.reshape(x_1.shape), rstride=1, cstride=1,
                     cmap='gist_rainbow_r', edgecolor='none')
     ax.set_title('surface')
-    plt.savefig('out_12', dpi=100)
+    plt.savefig('out_22', dpi=100)

@@ -4,13 +4,18 @@ Created on Fri Oct 30 12:45:53 2020
 
 @author: m.broglio
 """
-import time
-from itertools import product
 import pandas as pd
-import matplotlib.pyplot as plt
 import numpy as np
+import time
+# import scipy
+# from numpy.linalg import norm
 from scipy.optimize import minimize
-
+# from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
+import matplotlib.pyplot as plt
+# from matplotlib import cm
+# from matplotlib.ticker import LinearLocator, FormatStrFormatter
+from joblib import Parallel, delayed
+from itertools import product
 
 
 
@@ -51,9 +56,9 @@ class MLP:
         self.y_test = self.test_data.iloc[:, 2].to_numpy()
         
         self.n = self.X_train.shape[1]
-        self.W = np.random.normal(loc=0., scale=1./self.N, size=(self.N, self.n)) # N x n
-        self.v = np.random.normal(loc=0., scale=1./self.N, size=(self.N, 1)) # N x 1
-        self.b = np.random.normal(loc=0., scale=1./self.N, size=(self.N, 1)) # N x 1
+        self.W = np.random.normal(size=(self.N, self.n)) # N x n
+        self.v = np.random.normal(size=(self.N, 1)) # N x 1
+        self.b = np.random.normal(size=(self.N, 1)) # N x 1
         self.Loss_list = []
         
         
@@ -67,9 +72,12 @@ class MLP:
         self.minimize_obj = opt
         self.W, self.v, self.b = self._to_array(opt.x)
         
+        self._get_all_loss()
+        self.fit_time = f'Fit time: {time.time() - t}'
         if print_:
-            print(f'Time: {time.time() - t}')
-            print(f'Loss:{self.minimize_obj["fun"]}')
+            print(f'Time: {self.fit_time}')
+            print(f'Loss_train_reg_fit from minimize:{self.minimize_obj["fun"]}')
+            print(f'Loss_train_reg_fit from self:{self.train_loss_reg}')
             
     def _compute_loss(self, W, v, b, dataset, loss_reg=False):
         sigma = self.sigma
@@ -129,70 +137,74 @@ class MLP:
             out[loss_type] = self._compute_loss(self.W, self.v, self.b, dataset=loss_type)
            
         return out
+    
+    def _get_all_loss(self):
+       self.train_loss = self._compute_loss(self.W, self.v, self.b, dataset='train', loss_reg=False)
+       self.valid_loss = self._compute_loss(self.W, self.v, self.b, dataset='valid', loss_reg=False)
+       self.test_loss = self._compute_loss(self.W, self.v, self.b, dataset='test', loss_reg=False)
+       self.train_loss_reg = self._compute_loss(self.W, self.v, self.b, dataset='train', loss_reg=True)
+    
+    def print_loss_param(self, time=True):
+        if time:
+            print(f'\nFit Time: ', self.fit_time)
+        print('\nBest N :', self.N,
+          '\nBest rho :', self.rho,
+          '\nBest sigma :', self.sigma,
+          '\nBest train_loss: ', self.train_loss,
+          '\nBest valid_loss: ', self.valid_loss,
+          '\nBest test_loss: ', self.test_loss,)
  
 params = {
-    'N_vals': list(range(10, 40, 1)),
-    'sigma_vals': np.arange(.8, 1.4, .1),
+    'N_vals': list(range(1, 30, 1)),
+    'sigma_vals': np.arange(.5, 1.5, .1),
     'rho_vals': [1e-5, 1e-3, 1e-4]}
 
 
-def random_search(model, df, params, iterations=40, seed=1679838, print_=False):
+def random_search(model, df, params, iterations=40, seed=1679838, print_=True, n_jobs=-1):
     np.random.seed(seed)
     combinations = np.array(list(product(*params.values())))
-
     np.random.shuffle(combinations)
     combinations = combinations[:iterations]
     assert iterations <= len(combinations), 'iterations exceeded number of combinations'
-    t = time.time()
-    res = np.apply_along_axis(lambda x: get_opt(model, int(x[0]), x[1],x[2], df), 1, combinations)
-    print(f"Total time: {time.time()-t}")
+    t = time.time()                                # x[0] = N, x[1] = sigma, x[2] = rho
+    res = Parallel(n_jobs=n_jobs, verbose=99)\
+        (delayed(get_opt)(model, int(x[0]), x[1], x[2], df, print_) for x in combinations)
+    print(f"\nTotal time: {time.time() - t}")
     best_loss = np.inf
-    idx = None
-    for i, row in enumerate(res):
-        if row['loss'] < best_loss:
-            idx = i
-            best_loss = row['loss']
-    print('Best loss:', res[idx]['loss'], '\nBest params:', res[idx]['param'])
+    model = None
+    for mod in res:
+        if mod.valid_loss < best_loss:
+            model = mod
 
-    return res[idx]
+    print('\nBest N:', model.N,
+          '\nBest rho:', model.rho,
+          '\nBest sigma:', model.sigma,
+          '\nBest train_loss:', model.train_loss,
+          '\nBest valid_loss:', model.valid_loss,
+          '\nBest test_loss:', model.test_loss,)
+
+    return model
 
 
-
-def get_opt(model, n, sigma, rho, df, print_=False):
-    params = {'N': n, 'rho': rho, 'sigma': sigma}
-
-    perceptron = model(df=df, N=n, rho=rho, sigma=sigma)
-    perceptron.fit(print_=print_)
-    loss = perceptron._compute_loss(perceptron.W, perceptron.v, perceptron.b,  'valid')
-
-    return {'param' : params, 'loss' : loss, 'weights': {'W': perceptron.W, 'v': perceptron.v, 'b': perceptron.b}}
-
-def get_loss(model, loss_type):
-    if loss_type == 'train':
-        return model.get_loss('train')
-    elif loss_type == 'valid':
-        return  model.get_loss('valid')
-    elif loss_type == 'test':
-        return  model.get_loss('test')
-    elif loss_type == 'all':
-        return model.get_loss('all')
-    else:
-        raise Exception('loss type not supported!')
+def get_opt(model, n, sigma, rho, df, print_=True):
+    network = model(df=df, N=n, rho=rho, sigma=sigma)
+    network.fit(print_=print_)
+    return network
 
 
 def get_plot(net):
 
     x = np.linspace(-2, 2, 50)
     y = np.linspace(-2, 2, 50)
-    
+
     x_1, x_2 = np.meshgrid(x, y)
-    x_1 = x_1.flatten()#.reshape(-1,1)
-    x_2 = x_2.flatten()#.reshape(-1,1)
+    x_1 = x_1.flatten()  # .reshape(-1,1)
+    x_2 = x_2.flatten()  # .reshape(-1,1)
     x_ = np.vstack([x_1, x_2])
     z_ = net.predict(x_.T)
-    
+
     fig = plt.figure(figsize=(8, 6))
-    
+
     ax = plt.axes(projection='3d')
     x_1, x_2 = np.meshgrid(x, y)
     ax.plot_surface(x_1, x_2, z_.reshape(x_1.shape), rstride=1, cstride=1,

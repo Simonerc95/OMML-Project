@@ -5,8 +5,8 @@ import numexpr as ne
 import time
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
+from joblib import Parallel, delayed
 
-maxthreads = 20
 
 def rbf_scores(X, c, v, sigma):
     X_norm = np.sum(X ** 2, axis=-1)
@@ -47,8 +47,8 @@ class RBF:
         self.y_test = self.test_data.iloc[:, 2].to_numpy()
 
         self.n = self.X_train.shape[1]
-        self.C = np.random.normal(loc=0., scale=1. / self.N, size=(self.N, self.n))  # N x n
-        self.v = np.random.normal(loc=0., scale=1. / self.N, size=(self.N, 1))  # N x 1
+        self.C = np.random.normal(loc=0., scale=2., size=(self.N, self.n))  # N x n
+        self.v = np.random.normal(loc=0., scale=2., size=(self.N, 1))  # N x 1
 
         self.Loss_list = []
 
@@ -61,11 +61,13 @@ class RBF:
         {'maxiter': maxiter, 'disp': disp})
         self.minimize_obj = opt
         self.C, self.v = self._to_array(opt.x)
+                
+        self._get_all_loss()
+        self.fit_time = f'Fit time: {time.time() - t}'
         if print_:
-            print(f'Time: {time.time() - t}')
-            print(f'Loss:{self.minimize_obj["fun"]}')
-
-
+            print(f'Time: {self.fit_time}')
+            print(f'Loss_train_reg: {self.minimize_obj["fun"]}')
+            print(f'Loss_valid: {self.valid_loss}')
 
     def _compute_loss(self, C, v, dataset, loss_reg=False):
 
@@ -110,67 +112,73 @@ class RBF:
         C, v = self._to_array(vec)
         return self._compute_loss(C, v, dataset, loss_reg=True)
 
-    def get_loss(self, loss_type):
+    def get_loss(self, loss_type, loss_reg=False):
         out = {}
         if loss_type == 'all':
             for type_ in ('train', 'valid', 'test',):
-                out[type_] = self._compute_loss(self.C, self.v, dataset=type_)
+                out[type_] = self._compute_loss(self.C, self.v, dataset=type_, loss_reg=loss_reg)
         else:
-            out[loss_type] = self._compute_loss(self.C, self.v, dataset=loss_type)
+            out[loss_type] = self._compute_loss(self.C, self.v, dataset=loss_type, loss_reg=loss_reg)
 
         return out
+    
+    def _get_all_loss(self):
+
+        self.train_loss = self._compute_loss(self.C, self.v, dataset='train', loss_reg=False)
+        self.valid_loss = self._compute_loss(self.C, self.v, dataset='valid', loss_reg=False)
+        self.test_loss = self._compute_loss(self.C, self.v, dataset='test', loss_reg=False)
+        self.train_loss_reg = self._compute_loss(self.C, self.v, dataset='train', loss_reg=True)
+
+    def print_loss_params(self):
+        print('\nBest N:', self.N,
+              '\nBest rho:', self.rho,
+              '\nBest sigma:', self.sigma,
+              '\nBest train_loss:', self.train_loss,
+              '\nBest valid_loss:', self.valid_loss,
+              '\nBest test_loss:', self.test_loss)
 
 
 params = {
-    'N_vals': list(range(30, 55, 1)),
-    'sigma_vals': np.arange(.6, 1.2, .1),
+    'N_vals': list(range(10, 40, 1)),
+    'sigma_vals': np.arange(.5, 2.5, .1),
     'rho_vals': [1e-5, 1e-4, 1e-3]}
 
 
-def random_search(model, df, params, iterations=2, seed=1679838, print_=True):
+def random_search(model, df, params, iterations=10, seed=1679838, print_=True, n_jobs=-1):
     np.random.seed(seed)
     combinations = np.array(list(product(*params.values())))
     np.random.shuffle(combinations)
     combinations = combinations[:iterations]
     assert iterations <= len(combinations), 'iterations exceeded number of combinations'
     t = time.time()                                # x[0] = N, x[1] = sigma, x[2] = rho
-    res = np.apply_along_axis(lambda x: get_opt(model, int(x[0]), x[1],x[2], df), 1, combinations)
-    print(f"Total time: {time.time() - t}")
+    res = Parallel(n_jobs=n_jobs, verbose=10)\
+        (delayed(get_opt)(model, int(x[0]), x[1], x[2], df, print_) for x in combinations)
+    print(f"\nTotal time: {time.time() - t}")
     best_loss = np.inf
-    idx = None
-    for i, row in enumerate(res):
-        if row['loss'] < best_loss:
-            idx = i
-
-            best_loss = row['loss']
-    print('Best loss:', res[idx]['loss'], '\nBest params:', res[idx]['param'])
-
-    return res[idx]
+    model = None
+    for mod in res:
+        if mod.valid_loss < best_loss:
+            best_loss = mod.valid_loss
+            model = mod
+    return model
 
 
 def get_opt(model, n, sigma, rho, df, print_=True):
-    params = {}
-    params['N'] = n
-    params['rho'] = rho
-    params['sigma'] = sigma
     network = model(df=df, N=n, rho=rho, sigma=sigma)
     network.fit(print_=print_)
-    loss = network._compute_loss(network.C, network.v, 'valid')
+    return network
 
-    return {'param': params, 'loss': loss, 'weights': {'C':network.C, 'v':network.v}}
-
-
-def get_loss(model, loss_type):
-    if loss_type == 'train':
-        return model.get_loss('train')
-    elif loss_type == 'valid':
-        return model.get_loss('valid')
-    elif loss_type == 'test':
-        return model.get_loss('test')
-    elif loss_type == 'all':
-        return model.get_loss('all')
-    else:
-        raise Exception('loss type not supported!')
+# def get_loss(model, loss_type):
+#     if loss_type == 'train':
+#         return model.get_loss('train')
+#     elif loss_type == 'valid':
+#         return model.get_loss('valid')
+#     elif loss_type == 'test':
+#         return model.get_loss('test')
+#     elif loss_type == 'all':
+#         return model.get_loss('all')
+#     else:
+#         raise Exception('loss type not supported!')
 
 
 def get_plot(net):

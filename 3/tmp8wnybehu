@@ -64,25 +64,29 @@ class RBF:
         if print_:
             print(f'Time: {time.time() - t}')
             print(f'Loss:{self.minimize_obj["fun"]}')
-
-
-    def two_block(self, method='bfgs', num_iter=100, maxiter=1000, th=3, disp=False):
+            
+            
+    def two_block(self, method='bfgs', num_iter=100, maxiter=1000, th=9, disp=False):
         # step 1
-        self.C = np.random.normal(scale=2, size=(self.N, self.n))  # N x n
-        self.v = np.random.normal(scale=2, size=(self.N, 1))  # N x 1
+        self.C = np.random.normal(scale=2, size=(self.N, self.n))  # N x n 
+        self.v = np.random.normal(scale=2, size=(self.N, 1))  # N x 1 
         t = time.time()
-
+        
         R_old = 1000
         tolerance=0
         for i in range(num_iter):
-            self.v = self.opt_v() # llsp step 1
+            
+            opt = minimize(self._optimize, self.v.flatten(), jac=self.grad, method='bfgs', options=dict(maxiter=1))
+            
+            self.v = opt.x.reshape(self.N,1)
+                
             C = self.C
-
-            opt_2 = minimize(self._optimize_2, C.flatten(), method='bfgs', options=dict(maxiter=50)) # step
+            opt_2 = minimize(self._optimize_2, C.flatten(), jac=self.grad_2, method='bfgs', options=dict(maxiter=1))
+            
             self.C = opt_2.x.reshape(self.N, self.n)
-
+            
             R_val = self._compute_loss(self.C, self.v, dataset='train', loss_reg=True )
-
+            
             if R_old-R_val > 0:
                 R_old = R_val
                 tolerance=0
@@ -90,14 +94,12 @@ class RBF:
                 tolerance += 1
                 if tolerance > th:
                     break
-                
-            #print(f'step: {i}')
-
-
+        
+   
         print(f'Total time for Two Block: {time.time()-t}')
         #print(f'Best loss valid: {R_val}')
-
-
+          
+    
 
     def _compute_loss(self, C, v, dataset, loss_reg=False):
 
@@ -113,7 +115,7 @@ class RBF:
         elif dataset == 'test':
             X = self.X_test
             y = self.y_test
-
+        
         g_x = rbf_scores(X, C, sigma)
         f_x = g_x.dot(v)
         Loss = np.sum((f_x.reshape(y.shape) - y) ** 2) / (2 * len(y))
@@ -125,34 +127,29 @@ class RBF:
             return Loss_reg
         else:
             return Loss
-
-    def opt_v(self):
-        g_x = rbf_scores(self.X_train, self.C, self.sigma)
-        return np.dot(np.linalg.pinv(g_x), self.y_train)
-
+        
     def grad(self, v):
         g_x = rbf_scores(self.X_train, self.C, self.sigma)
         return (2 * (g_x.T.dot(g_x) + self.rho * np.identity(self.N)).dot(v) - 2*g_x.T.dot(self.y_train))
-
-    # def grad_2(self, C):
-    #     C = C.reshape(self.N, self.n)
-    #     v = self.v
-    #     X = self.X_train
-    #     rho = self.rho
-    #     sigma = self.sigma
-    #     norms = np.array([np.linalg.norm(X[i]- C)**2 for i in range(X.shape[0])])
-    #     x_c = np.array([X[i]- C for i in range(X.shape[0])])
-
-
-    #     a = 4*v.dot(v.T)/sigma**4 #Nx1
-    #     b = np.array([norms[i]*x_c[i] for i in range(X.shape[0])])
-    #     c = np.exp((2*(norms))/sigma**2)
-    #     d =
-    #     print(a.shape, b.shape, c.shape)
-
-    #     grad = 2*rho*C + a.dot(c.dot(b).reshape(C.shape))
-
-    #     return grad
+    
+    def grad_2(self, C):
+        C = C.reshape(self.N, self.n)
+        v = self.v 
+        X = self.X_train
+        rho = self.rho
+        sigma = self.sigma
+        norms = np.array([np.linalg.norm(X[i]- C)**2 for i in range(X.shape[0])]) 
+        x_c = np.array([X[i]- C for i in range(X.shape[0])]) 
+       
+        
+        a = 4*v.dot(v.T)/sigma**4 #Nx1
+        b = np.array([norms[i]*x_c[i] for i in range(X.shape[0])])
+        c = np.exp((2*(norms))/sigma**2)
+        print(a.shape, b.shape, c.shape)
+        
+        grad = 2*rho*C + a.dot(c.dot(b).reshape(C.shape))
+        
+        return grad
 
     def predict(self, X):
         return rbf_scores(X, self.C, self.sigma).dot(self.v)
@@ -170,7 +167,7 @@ class RBF:
     def _optimize(self, v, dataset='train'):
         C = self.C
         return self._compute_loss(C, v, dataset, loss_reg=True)
-
+    
     def _optimize_2(self, C, dataset='train'):
         v = self.v
         C = C.reshape(self.N, self.n)

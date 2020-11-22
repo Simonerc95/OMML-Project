@@ -60,24 +60,25 @@ class MLP:
         self.Loss_list = []
 
 
+
     def extreme_learning(self, num_iter=100):
-        random_W = np.random.normal(size=(self.N, self.n, num_iter))  # N x n
-        random_b = np.random.normal(size=(self.N, 1, num_iter))  # N x 1
 
         best_loss = np.inf
         t = time.time()
         for c in range(num_iter):
-            self.W_tmp = random_W[:, :, c].reshape(self.N, self.n)
-            self.b_tmp = random_b[:, :, c].reshape(self.N, 1)
+            self.W_tmp = np.random.normal(scale=2.3, size=(self.N, self.n))
+            self.b_tmp = np.random.normal(scale=2.5, size=(self.N, 1))
             v = self.opt_v()
-
-            if self._optimize(v) < best_loss:
+            current_loss = self._optimize(v)
+            if current_loss < best_loss:
                 self.W = self.W_tmp
                 self.b = self.b_tmp
                 self.v = v
-                best_loss = self._optimize(v)
+                best_loss = current_loss
+                self._get_all_loss()
+
         print(f'Total time for Extreme learning: {time.time() - t}')
-        print(f'Best loss: {best_loss}')
+        print(f'Best Regularized Loss: {best_loss}')
 
     def _compute_loss(self, W, v, b, dataset, loss_reg=False):
         sigma = self.sigma
@@ -102,13 +103,12 @@ class MLP:
         # self.Loss_list.append(Loss)
 
         if loss_reg:
-            L2 = np.linalg.norm(v) ** 2  # regularization
+
+            L2 = np.linalg.norm(v)**2  # regularization
             Loss_reg = Loss + (rho * L2)
             return Loss_reg
         else:
             return Loss
-
-    # TRUE EXTREME LEARNING
 
     def opt_v(self):
         xx = self.W_tmp.dot(self.X_train.T) - self.b_tmp #N x P
@@ -148,11 +148,19 @@ class MLP:
 
         return out
 
+    def _get_all_loss(self):
+        self.train_loss = self._compute_loss(self.W, self.v, self.b, dataset='train', loss_reg=False)
+        self.valid_loss = self._compute_loss(self.W, self.v, self.b, dataset='valid', loss_reg=False)
+        self.test_loss = self._compute_loss(self.W, self.v, self.b, dataset='test', loss_reg=False)
+        self.train_loss_reg = self._compute_loss(self.W, self.v, self.b, dataset='train', loss_reg=True)
 
-params = {
-    'N_vals': list(range(2, 18, 1)),
-    'sigma_vals': np.arange(.8, 1.4, .1),
-    'rho_vals': [1e-5, 1e-3, 1e-4]}
+    def print_loss_params(self):
+        print('\nBest N:', self.N,
+              '\nBest rho:', self.rho,
+              '\nBest sigma:', self.sigma,
+              '\nBest train_loss:', self.train_loss,
+              '\nBest valid_loss:', self.valid_loss,
+              '\nBest test_loss:', self.test_loss)
 
 
 def get_opt(model, n, sigma, rho, df):

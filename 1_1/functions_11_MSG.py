@@ -7,13 +7,8 @@ Created on Fri Oct 30 12:45:53 2020
 import pandas as pd
 import numpy as np
 import time
-# import scipy
-# from numpy.linalg import norm
 from scipy.optimize import minimize
-# from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
 import matplotlib.pyplot as plt
-# from matplotlib import cm
-# from matplotlib.ticker import LinearLocator, FormatStrFormatter
 from joblib import Parallel, delayed
 from itertools import product
 
@@ -56,14 +51,14 @@ class MLP:
         self.y_test = self.test_data.iloc[:, 2].to_numpy()
         
         self.n = self.X_train.shape[1]
-        self.W = np.random.normal(size=(self.N, self.n)) # N x n
-        self.v = np.random.normal(size=(self.N, 1)) # N x 1
-        self.b = np.random.normal(size=(self.N, 1)) # N x 1
+        self.W = np.random.normal(scale=2, size=(self.N, self.n)) # N x n
+        self.v = np.random.normal(scale=2, size=(self.N, 1)) # N x 1
+        self.b = np.random.normal(scale=2, size=(self.N, 1)) # N x 1
         self.Loss_list = []
         
         
-    def fit(self, method = 'bfgs', maxiter=1000, disp = False, print_=True):
-                            
+    def fit(self, method = 'bfgs', maxiter=1000, print_=True):
+        disp = print_
         t = time.time()
         vec = self._to_vec()
             
@@ -77,7 +72,7 @@ class MLP:
         if print_:
             print(f'Time: {self.fit_time}')
             print(f'Loss_train_reg_fit from minimize:{self.minimize_obj["fun"]}')
-            print(f'Loss_train_reg_fit from self:{self.train_loss_reg}')
+            print(f'Loss_valid :{self.valid_loss}')
             
     def _compute_loss(self, W, v, b, dataset, loss_reg=False):
         sigma = self.sigma
@@ -167,7 +162,7 @@ def random_search(model, df, params, iterations=40, seed=1679838, print_=True, n
     combinations = combinations[:iterations]
     assert iterations <= len(combinations), 'iterations exceeded number of combinations'
     t = time.time()                                # x[0] = N, x[1] = sigma, x[2] = rho
-    res = Parallel(n_jobs=n_jobs, verbose=99)\
+    res = Parallel(n_jobs=n_jobs, verbose=10)\
         (delayed(get_opt)(model, int(x[0]), x[1], x[2], df, print_) for x in combinations)
     print(f"\nTotal time: {time.time() - t}")
     best_loss = np.inf
@@ -175,13 +170,6 @@ def random_search(model, df, params, iterations=40, seed=1679838, print_=True, n
     for mod in res:
         if mod.valid_loss < best_loss:
             model = mod
-
-    print('\nBest N:', model.N,
-          '\nBest rho:', model.rho,
-          '\nBest sigma:', model.sigma,
-          '\nBest train_loss:', model.train_loss,
-          '\nBest valid_loss:', model.valid_loss,
-          '\nBest test_loss:', model.test_loss,)
 
     return model
 

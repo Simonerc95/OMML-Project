@@ -123,7 +123,6 @@ class RBF:
         return out
     
     def _get_all_loss(self):
-
         self.train_loss = self._compute_loss(self.C, self.v, dataset='train', loss_reg=False)
         self.valid_loss = self._compute_loss(self.C, self.v, dataset='valid', loss_reg=False)
         self.test_loss = self._compute_loss(self.C, self.v, dataset='test', loss_reg=False)

@@ -78,10 +78,10 @@ class RBF:
             self.v = self.opt_v() # llsp step 1
             C = self.C
 
-            opt_2 = minimize(self._optimize_2, C.flatten(), method='bfgs', options=dict(maxiter=50)) # step
+            opt_2 = minimize(self._optimize_2, C.flatten(), method='bfgs', options=dict(maxiter=80)) # step
             self.C = opt_2.x.reshape(self.N, self.n)
 
-            R_val = self._compute_loss(self.C, self.v, dataset='train', loss_reg=True )
+            R_val = self._compute_loss(self.C, self.v, dataset='valid', loss_reg=False)
 
             if R_old-R_val > 0:
                 R_old = R_val
@@ -90,12 +90,13 @@ class RBF:
                 tolerance += 1
                 if tolerance > th:
                     break
-                
-            #print(f'step: {i}')
+        self._get_all_loss()
+
 
 
         print(f'Total time for Two Block: {time.time()-t}')
-        #print(f'Best loss valid: {R_val}')
+        print(f"Total number of iterations: {i}")
+        print(f'Best loss valid: {R_val}')
 
 
 
@@ -117,7 +118,7 @@ class RBF:
         g_x = rbf_scores(X, C, sigma)
         f_x = g_x.dot(v)
         Loss = np.sum((f_x.reshape(y.shape) - y) ** 2) / (2 * len(y))
-        # self.Loss_list.append(Loss)
+
 
         if loss_reg:
             L2 = np.linalg.norm(np.concatenate((C, v), axis=None)) ** 2  # regularization
@@ -134,25 +135,6 @@ class RBF:
         g_x = rbf_scores(self.X_train, self.C, self.sigma)
         return (2 * (g_x.T.dot(g_x) + self.rho * np.identity(self.N)).dot(v) - 2*g_x.T.dot(self.y_train))
 
-    # def grad_2(self, C):
-    #     C = C.reshape(self.N, self.n)
-    #     v = self.v
-    #     X = self.X_train
-    #     rho = self.rho
-    #     sigma = self.sigma
-    #     norms = np.array([np.linalg.norm(X[i]- C)**2 for i in range(X.shape[0])])
-    #     x_c = np.array([X[i]- C for i in range(X.shape[0])])
-
-
-    #     a = 4*v.dot(v.T)/sigma**4 #Nx1
-    #     b = np.array([norms[i]*x_c[i] for i in range(X.shape[0])])
-    #     c = np.exp((2*(norms))/sigma**2)
-    #     d =
-    #     print(a.shape, b.shape, c.shape)
-
-    #     grad = 2*rho*C + a.dot(c.dot(b).reshape(C.shape))
-
-    #     return grad
 
     def predict(self, X):
         return rbf_scores(X, self.C, self.sigma).dot(self.v)
@@ -185,6 +167,20 @@ class RBF:
             out[loss_type] = self._compute_loss(self.C, self.v, dataset=loss_type)
 
         return out
+
+    def _get_all_loss(self):
+        self.train_loss = self._compute_loss(self.C, self.v, dataset='train', loss_reg=False)
+        self.valid_loss = self._compute_loss(self.C, self.v, dataset='valid', loss_reg=False)
+        self.test_loss = self._compute_loss(self.C, self.v, dataset='test', loss_reg=False)
+        self.train_loss_reg = self._compute_loss(self.C, self.v, dataset='train', loss_reg=True)
+
+    def print_loss_params(self):
+        print('\nBest N:', self.N,
+              '\nBest rho:', self.rho,
+              '\nBest sigma:', self.sigma,
+              '\nBest train_loss:', self.train_loss,
+              '\nBest valid_loss:', self.valid_loss,
+              '\nBest test_loss:', self.test_loss)
 
 
 params = {
@@ -258,4 +254,4 @@ def get_plot(net):
     ax.plot_surface(x_1, x_2, z_.reshape(x_1.shape), rstride=1, cstride=1,
                     cmap='gist_rainbow_r', edgecolor='none')
     ax.set_title('surface')
-    plt.savefig('out_12', dpi=100)
+    plt.savefig('out_3', dpi=100)

@@ -47,8 +47,8 @@ class RBF:
         self.y_test = self.test_data.iloc[:, 2].to_numpy()
 
         self.n = self.X_train.shape[1]
-        self.C = np.random.normal(size=(self.N, self.n))  # N x n
-        self.v = np.random.normal(size=(self.N, 1))  # N x 1
+        self.C = None
+        self.v = None
         self.Loss_list = []
 
 

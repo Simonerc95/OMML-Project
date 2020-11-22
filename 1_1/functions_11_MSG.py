@@ -131,7 +131,7 @@ class MLP:
         return out
  
 params = {
-    'N_vals': list(range(2, 18, 1)),
+    'N_vals': list(range(10, 40, 1)),
     'sigma_vals': np.arange(.8, 1.4, .1),
     'rho_vals': [1e-5, 1e-3, 1e-4]}
 

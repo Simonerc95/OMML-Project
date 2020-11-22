@@ -108,7 +108,7 @@ class RBF:
         # self.Loss_list.append(Loss)
 
         if loss_reg:
-            L2 = np.linalg.norm(np.concatenate((C, v), axis=None)) ** 2  # regularization
+            L2 = np.linalg.norm(v) ** 2  # regularization
             Loss_reg = Loss + (rho * L2)
             return Loss_reg
         else:

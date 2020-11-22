@@ -52,31 +52,32 @@ class MLP:
         self.y_test = self.test_data.iloc[:, 2].to_numpy()
 
         self.n = self.X_train.shape[1]
-        self.W = np.random.normal(loc=0., scale=1. / self.N, size=(self.N, self.n))  # N x n
-        self.v = np.random.normal(loc=0., scale=1. / self.N, size=(self.N, 1))  # N x 1
-        self.b = np.random.normal(loc=0., scale=1. / self.N, size=(self.N, 1))  # N x 1
+        self.W = np.zeros((self.N, self.n))  # N x n
+        self.v = np.zeros((self.N, 1))  # N x 1
+        self.b = np.zeros((self.N, 1))  # N x 1
+        self.W_tmp = self.W  # N x n
+        self.b_tmp = self.b  # N x 1
         self.Loss_list = []
 
-    def fit(self, method='bfgs', maxiter=1000, disp=False, print_=True):
 
+    def extreme_learning(self, num_iter=100):
+        random_W = np.random.normal(0, 3, size=(self.N, self.n, num_iter))  # N x n
+        random_b = np.random.uniform(-3, 3, size=(self.N, 1, num_iter))  # N x 1
+
+        best_loss = np.inf
         t = time.time()
-        vec = self._to_vec()
+        for c in range(num_iter):
+            self.W_tmp = random_W[:, :, c].reshape(self.N, self.n)
+            self.b_tmp = random_b[:, :, c].reshape(self.N, 1)
+            v = self.opt_v()
 
-        opt = minimize(self._optimize, vec, method=method, options=
-        {'maxiter': maxiter, 'disp': disp})
-        self.minimize_obj = opt
-        self.W, self.v, self.b = self._to_array(opt.x)
-
-        if print_:
-            print(f'Time: {time.time() - t}')
-            print(f'Loss:{self.minimize_obj["fun"]}')
-
-    def extreme_learning(self, method='bfgs', maxiter=1000, disp=False):
-        random_W = np.random.normal(loc=0., scale=1. / self.N, size=(self.N, self.n))  # N x n
-        random_b = np.random.normal(loc=0., scale=1. / self.N, size=(self.N, 1))  # N x 1
-
-        pass
-
+            if self._optimize(v) < best_loss:
+                self.W = self.W_tmp
+                self.b = self.b_tmp
+                self.v = v
+                best_loss = self._optimize(v)
+        print(f'Total time for Extreme learning: {time.time() - t}')
+        print(f'Best loss: {best_loss}')
 
     def _compute_loss(self, W, v, b, dataset, loss_reg=False):
         sigma = self.sigma
@@ -93,6 +94,7 @@ class MLP:
             X = self.X_test
             y = self.y_test
 
+
         xx = W.dot(X.T) - b  # N x P Ogni colonna è l'output degli N neuroni per una specifica x (unità statistica)
         g_x = activation(xx, sigma)  # , sigma=self.sigma) # N x P
         f_x = g_x.T.dot(v)  # P x 1 - g_x.T = P x N @ N x 1
@@ -100,11 +102,18 @@ class MLP:
         # self.Loss_list.append(Loss)
 
         if loss_reg:
-            L2 = np.linalg.norm(np.concatenate((W, v, b), axis=None)) ** 2  # regularization
+            L2 = np.linalg.norm(v) ** 2  # regularization
             Loss_reg = Loss + (rho * L2)
             return Loss_reg
         else:
             return Loss
+
+    # TRUE EXTREME LEARNING
+
+    def opt_v(self):
+        xx = self.W_tmp.dot(self.X_train.T) - self.b_tmp #N x P
+        g_x = self.activation(xx, self.sigma) #N x P
+        return np.dot(np.linalg.pinv(g_x.T), self.y_train)
 
     def predict(self, X):
         xx = self.W.dot(
@@ -124,8 +133,9 @@ class MLP:
         assert vec.shape == (N * n + (2 * N),)
         return vec[:N * n].reshape(N, n), vec[N * n:-N].reshape(N, 1), vec[-N:].reshape(N, 1)
 
-    def _optimize(self, vec, dataset='train'):
-        W, v, b = self._to_array(vec)
+    def _optimize(self, v, dataset='train'):
+        W = self.W_tmp
+        b = self.b_tmp
         return self._compute_loss(W, v, b, dataset, loss_reg=True)
 
     def get_loss(self, loss_type):

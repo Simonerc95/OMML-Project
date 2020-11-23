@@ -8,6 +8,8 @@ if run_random_search:
 else:
     best_params = {'N': 29, 'rho': 1e-5, 'sigma': 0.8}
     best_model = RBF(df=df, **best_params)
-    best_model.fit(maxiter=1500, print_=False)
+    best_model.fit(print_=False, maxiter=800)
+
 best_model.print_loss_param()
+
 get_plot(best_model)

@@ -73,8 +73,8 @@ class RBF:
         self.method_1 = 'llsp'
         self.method_2 = method
         self.other_params = f'#patience: {th}, #two_block max_iter: {num_iter}, {method}_max_iter: {maxiter}'
-        self.C = np.random.normal(scale=2, size=(self.N, self.n))  # N x n
-        self.v = np.random.normal(scale=2, size=(self.N, 1))  # N x 1
+        self.C = np.random.normal(size=(self.N, self.n))  # N x n
+        self.v = np.random.normal(size=(self.N, 1))  # N x 1
         t = time.time()
 
         R_old = 1000
@@ -90,7 +90,7 @@ class RBF:
             self.tot_fun += opt_2['nfev']
             self.tot_grad += opt_2['njev']
             
-            R_val = self._compute_loss(self.C, self.v, dataset='valid', loss_reg=False)
+            R_val = self._compute_loss(self.C, self.v, dataset='train', loss_reg=False)
 
             if R_old-R_val > 0:
                 R_old = R_val
@@ -98,7 +98,6 @@ class RBF:
             else:
                 tolerance += 1
                 if tolerance > th:
-                    print(f'TOLERANCE EXCEEDED at step: {i}')
                     break
         self.fit_time = time.time()-t
         # print(f'Total time for Two Block: {time.time()-t}')

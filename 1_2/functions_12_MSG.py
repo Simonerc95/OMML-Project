@@ -29,8 +29,6 @@ class RBF:
         assert sigma >= 0, 'Sigma must be positive!'
         self.sigma = sigma
 
-        assert rho >= 10 ** (-5), 'Rho too low!'
-        assert rho <= 10 ** (-3), 'Rho too high!'
         self.rho = rho
 
         self.seed = random_state
@@ -210,3 +208,37 @@ def get_plot(net):
                     cmap='gist_rainbow_r', edgecolor='none')
     ax.set_title('surface')
     plt.savefig('out_12', dpi=100)
+
+
+def get_overfitting_plots(Network, df):
+    params = dict(
+        N=list(range(1, 72, 5)),
+        sigma=np.arange(0.5, 1.5, 0.1),
+        rho=np.arange(1e-5, 1.05e-3, 5e-5)
+    )
+    base = dict(N=29, rho=1e-5, sigma=0.8)
+    # for par in params.keys():
+    par = 'rho'
+    print(f'{par}')
+    train_losses = []
+    valid_losses = []
+    for i, _ in enumerate(params[par]):
+        N = params[par][i] if par == 'N' else base['N']
+        sigma = params[par][i] if par == 'sigma' else base['sigma']
+        rho = params[par][i] if par == 'rho' else base['rho']
+
+        net = Network(df, N=N, rho=rho, sigma=sigma)
+        net.fit(print_=False)
+        net._get_all_loss()
+        train_losses.append(net.train_loss)
+        valid_losses.append(net.valid_loss)
+
+    fig = plt.figure(figsize=(8, 6))
+    plt.plot(params[par], train_losses, label='Train Loss')
+    plt.plot(params[par], valid_losses, label='Valid Loss')
+    plt.xlabel(f'{par}')
+    plt.ylabel('Loss')
+    plt.title(f"Loss trend on {par}")
+    plt.legend()
+    plt.savefig(f'{par}_12_losses', dpi=100)
+    plt.clf()

@@ -84,7 +84,8 @@ class RBF:
                 self.C = self.C_temp
                 self.v = v
                 best_loss = current_loss
-                self._get_all_loss()
+
+        self._get_all_loss()
         self.fit_time = time.time() - t
         # print(f'Total time for Extreme learning: {time.time() - t}')
         # print(f'Best Regularized Loss: {best_loss}')

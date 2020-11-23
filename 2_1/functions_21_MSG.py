@@ -79,7 +79,7 @@ class MLP:
                 self.b = self.b_tmp
                 self.v = v
                 best_loss = current_loss
-                self._get_all_loss()
+        self._get_all_loss()
         
         self.fit_time = time.time() - t
         

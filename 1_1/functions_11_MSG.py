@@ -59,6 +59,8 @@ class MLP:
         
     def fit(self, method = 'bfgs', maxiter=1000, print_=True):
         disp = print_
+        self.method = method
+        self.max_iter = maxiter
         t = time.time()
         vec = self._to_vec()
             
@@ -66,10 +68,10 @@ class MLP:
                        {'maxiter':maxiter, 'disp':disp})
         self.minimize_obj = opt
         self.W, self.v, self.b = self._to_array(opt.x)
-        
         self._get_all_loss()
-        self.fit_time = f'Fit time: {time.time() - t}'
+        self.fit_time = time.time() - t
         if print_:
+            pass
             print(f'Time: {self.fit_time}')
             print(f'Loss_train_reg_fit from minimize:{self.minimize_obj["fun"]}')
             print(f'Loss_valid :{self.valid_loss}')
@@ -140,13 +142,19 @@ class MLP:
        self.train_loss_reg = self._compute_loss(self.W, self.v, self.b, dataset='train', loss_reg=True)
     
     def print_loss_param(self, time=True):
-        if time:
-            print(f'\nFit Time: ', self.fit_time)
+        opt = self.minimize_obj
+        # if time:
+        #     print(f'\n', self.fit_time)
         print('\nBest N :', self.N,
-          '\nBest rho :', self.rho,
           '\nBest sigma :', self.sigma,
+          '\nBest rho :', self.rho,
+          '\nMax iterations:', self.max_iter,
+          '\nOptimization solver:', self.method,
+          '\nNumber of function evaluations:', opt['nfev'],
+          '\nNumber of gradient evaluations:', opt['njev'],
+          '\nTime for optimizing the network:', self.fit_time,
           '\nBest train_loss: ', self.train_loss,
-          '\nBest valid_loss: ', self.valid_loss,
+          # '\nBest valid_loss: ', self.valid_loss,
           '\nBest test_loss: ', self.test_loss,)
  
 params = {

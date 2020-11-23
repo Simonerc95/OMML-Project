@@ -62,13 +62,17 @@ class MLP:
 
 
     def extreme_learning(self, num_iter=100):
-
-        best_loss = np.inf
+        self.max_iter = num_iter
+        best_loss = 1000
+        self.tot_fun = 0
+        self.tot_grad = 'gradient free'
+        self.method = 'llsp'
         t = time.time()
         for c in range(num_iter):
             self.W_tmp = np.random.normal(scale=2.3, size=(self.N, self.n))
             self.b_tmp = np.random.normal(scale=2.5, size=(self.N, 1))
             v = self.opt_v()
+            self.tot_fun += 1
             current_loss = self._optimize(v)
             if current_loss < best_loss:
                 self.W = self.W_tmp
@@ -76,9 +80,11 @@ class MLP:
                 self.v = v
                 best_loss = current_loss
                 self._get_all_loss()
-
-        print(f'Total time for Extreme learning: {time.time() - t}')
-        print(f'Best Regularized Loss: {best_loss}')
+        
+        self.fit_time = time.time() - t
+        
+        # print(f'Total time for Extreme learning: {time.time() - t}')
+        # print(f'Best Regularized Loss: {best_loss}')
 
     def _compute_loss(self, W, v, b, dataset, loss_reg=False):
         sigma = self.sigma
@@ -154,13 +160,20 @@ class MLP:
         self.test_loss = self._compute_loss(self.W, self.v, self.b, dataset='test', loss_reg=False)
         self.train_loss_reg = self._compute_loss(self.W, self.v, self.b, dataset='train', loss_reg=True)
 
-    def print_loss_params(self):
-        print('\nBest N:', self.N,
-              '\nBest rho:', self.rho,
-              '\nBest sigma:', self.sigma,
-              '\nBest train_loss:', self.train_loss,
-              '\nBest valid_loss:', self.valid_loss,
-              '\nBest test_loss:', self.test_loss)
+    def print_loss_params(self, time=True):
+        # if time:
+        #     print(f'\n', self.fit_time)
+        print('\nBest N :', self.N,
+          '\nBest sigma :', self.sigma,
+          '\nBest rho :', self.rho,
+          '\nExtreme learning iterations:', self.max_iter,
+          '\nOptimization method:', self.method,
+          '\nNumber of function evaluations:', self.tot_fun,
+          '\nNumber of gradient evaluations:', self.tot_grad,
+          '\nTime for optimizing the network:', self.fit_time,
+          '\nBest train_loss: ', self.train_loss,
+          # '\nBest valid_loss: ', self.valid_loss,
+          '\nBest test_loss: ', self.test_loss,)
 
 
 def get_opt(model, n, sigma, rho, df):

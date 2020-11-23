@@ -53,7 +53,10 @@ class RBF:
         self.Loss_list = []
 
     def fit(self, method='BFGS', maxiter=2000, disp=True, print_=True):
+        disp = print_
         np.random.RandomState(self.seed)
+        self.method = method
+        self.max_iter = maxiter
         t = time.time()
         vec = self._to_vec()
 
@@ -63,7 +66,7 @@ class RBF:
         self.C, self.v = self._to_array(opt.x)
                 
         self._get_all_loss()
-        self.fit_time = f'Fit time: {time.time() - t}'
+        self.fit_time = time.time() - t
         if print_:
             print(f'Time: {self.fit_time}')
             print(f'Loss_train_reg: {self.minimize_obj["fun"]}')
@@ -128,13 +131,21 @@ class RBF:
         self.test_loss = self._compute_loss(self.C, self.v, dataset='test', loss_reg=False)
         self.train_loss_reg = self._compute_loss(self.C, self.v, dataset='train', loss_reg=True)
 
-    def print_loss_params(self):
-        print('\nBest N:', self.N,
-              '\nBest rho:', self.rho,
-              '\nBest sigma:', self.sigma,
-              '\nBest train_loss:', self.train_loss,
-              '\nBest valid_loss:', self.valid_loss,
-              '\nBest test_loss:', self.test_loss)
+    def print_loss_param(self, time=True):
+        opt = self.minimize_obj
+        # if time:
+        #     print(f'\n', self.fit_time)
+        print('\nBest N :', self.N,
+          '\nBest sigma :', self.sigma,
+          '\nBest rho :', self.rho,
+          '\nMax iterations:', self.max_iter,
+          '\nOptimization solver:', self.method,
+          '\nNumber of function evaluations:', opt['nfev'],
+          '\nNumber of gradient evaluations:', opt['njev'],
+          '\nTime for optimizing the network:', self.fit_time,
+          '\nBest train_loss: ', self.train_loss,
+          # '\nBest valid_loss: ', self.valid_loss,
+          '\nBest test_loss: ', self.test_loss,)
 
 
 params = {

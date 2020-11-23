@@ -66,8 +66,13 @@ class RBF:
             print(f'Loss:{self.minimize_obj["fun"]}')
 
 
-    def two_block(self, method='bfgs', num_iter=100, maxiter=1000, th=3, disp=False):
+    def two_block(self, method='bfgs', num_iter=100, maxiter=80, th=4, disp=False):
         # step 1
+        self.tot_fun = 0
+        self.tot_grad = 0
+        self.method_1 = 'llsp'
+        self.method_2 = method
+        self.other_params = f'#patience: {th}, #two_block max_iter: {num_iter}, {method}_max_iter: {maxiter}'
         self.C = np.random.normal(scale=2, size=(self.N, self.n))  # N x n
         self.v = np.random.normal(scale=2, size=(self.N, 1))  # N x 1
         t = time.time()
@@ -77,10 +82,14 @@ class RBF:
         for i in range(num_iter):
             self.v = self.opt_v() # llsp step 1
             C = self.C
+            self.tot_fun += 1
 
-            opt_2 = minimize(self._optimize_2, C.flatten(), method='bfgs', options=dict(maxiter=80)) # step
+            opt_2 = minimize(self._optimize_2, C.flatten(), method='bfgs', options=dict(maxiter=maxiter)) # step
             self.C = opt_2.x.reshape(self.N, self.n)
-
+            
+            self.tot_fun += opt_2['nfev']
+            self.tot_grad += opt_2['njev']
+            
             R_val = self._compute_loss(self.C, self.v, dataset='valid', loss_reg=False)
 
             if R_old-R_val > 0:
@@ -89,14 +98,13 @@ class RBF:
             else:
                 tolerance += 1
                 if tolerance > th:
+                    print(f'TOLERANCE EXCEEDED at step: {i}')
                     break
+        self.fit_time = time.time()-t
+        # print(f'Total time for Two Block: {time.time()-t}')
+        # print(f"Total number of iterations: {i}")
+        # print(f'Best loss valid: {R_val}')
         self._get_all_loss()
-
-
-
-        print(f'Total time for Two Block: {time.time()-t}')
-        print(f"Total number of iterations: {i}")
-        print(f'Best loss valid: {R_val}')
 
 
 
@@ -156,7 +164,7 @@ class RBF:
     def _optimize_2(self, C, dataset='train'):
         v = self.v
         C = C.reshape(self.N, self.n)
-        return self._compute_loss(C, v, dataset, loss_reg=True)
+        return self._compute_loss(C, v, dataset, loss_reg=False)
 
     def get_loss(self, loss_type):
         out = {}
@@ -174,13 +182,21 @@ class RBF:
         self.test_loss = self._compute_loss(self.C, self.v, dataset='test', loss_reg=False)
         self.train_loss_reg = self._compute_loss(self.C, self.v, dataset='train', loss_reg=True)
 
-    def print_loss_params(self):
-        print('\nBest N:', self.N,
-              '\nBest rho:', self.rho,
-              '\nBest sigma:', self.sigma,
-              '\nBest train_loss:', self.train_loss,
-              '\nBest valid_loss:', self.valid_loss,
-              '\nBest test_loss:', self.test_loss)
+    def print_loss_params(self, time=True):
+        # if time:
+        #     print(f'\n', self.fit_time)
+        print('\nBest N :', self.N,
+          '\nBest sigma :', self.sigma,
+          '\nBest rho :', self.rho,
+          '\nOther Hyperparameters:', self.other_params,
+          '\nOptimization solver step 1:', self.method_1,
+          '\nOptimization solver step 2:', self.method_2,
+          '\nNumber of function evaluations:', self.tot_fun,
+          '\nNumber of gradient evaluations:', self.tot_grad,
+          '\nTime for optimizing the network:', self.fit_time,
+          '\nBest train_loss: ', self.train_loss,
+          # '\nBest valid_loss: ', self.valid_loss,
+          '\nBest test_loss: ', self.test_loss,)
 
 
 params = {

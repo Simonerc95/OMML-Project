@@ -4,7 +4,7 @@ df = pd.read_csv(r'..\OMML2020_Assignment_1_Dataset.csv')
 run_random_search = False
 
 if run_random_search:
-    best_model = random_search(model = RBF, iterations=80, df=df, params=params, print_=False, n_jobs=-1)
+    best_model = random_search(model = RBF, iterations=1000, df=df, params=params, print_=False, n_jobs=-1)
 else:
     best_params = {'N': 29, 'rho': 1e-5, 'sigma': 0.8}
     best_model = RBF(df=df, **best_params)

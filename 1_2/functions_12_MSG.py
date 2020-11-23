@@ -147,12 +147,12 @@ class RBF:
 
 
 params = {
-    'N_vals': list(range(10, 40, 1)),
+    'N_vals': list(range(10, 50, 1)),
     'sigma_vals': np.arange(.5, 2.5, .1),
     'rho_vals': [1e-5, 1e-4, 1e-3]}
 
 
-def random_search(model, df, params, iterations=10, seed=1679838, print_=True, n_jobs=-1):
+def random_search(model, df, params, iterations=1000, seed=1679838, print_=True, n_jobs=-1):
     np.random.seed(seed)
     combinations = np.array(list(product(*params.values())))
     np.random.shuffle(combinations)

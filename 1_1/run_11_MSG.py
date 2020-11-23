@@ -4,7 +4,7 @@ df = pd.read_csv(r'..\OMML2020_Assignment_1_Dataset.csv')
 run_random_search = False
 
 if run_random_search:
-    best_model = random_search(model=MLP, df=df, params=params, print_=False, n_jobs=20)
+    best_model = random_search(model=MLP, iterations=1000, df=df, params=params, print_=False, n_jobs=20)
 else:
     best_params = dict(N=28, rho=1e-5, sigma=0.7)
     best_model = MLP(df=df, **best_params)

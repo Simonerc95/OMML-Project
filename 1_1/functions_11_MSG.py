@@ -53,7 +53,7 @@ class MLP:
         self.v = np.random.normal(scale=2, size=(self.N, 1)) # N x 1
         self.b = np.random.normal(scale=2, size=(self.N, 1)) # N x 1
         self.Loss_list = []
-        
+
         
     def fit(self, method = 'bfgs', maxiter=1000, print_=True):
         disp = print_
@@ -156,12 +156,12 @@ class MLP:
           '\nBest test_loss: ', self.test_loss,)
  
 params = {
-    'N_vals': list(range(1, 30, 1)),
+    'N_vals': list(range(1, 50, 1)),
     'sigma_vals': np.arange(.5, 1.5, .1),
     'rho_vals': [1e-5, 1e-3, 1e-4]}
 
 
-def random_search(model, df, params, iterations=40, seed=1679838, print_=True, n_jobs=-1):
+def random_search(model, df, params, iterations=1000, seed=1679838, print_=True, n_jobs=-1):
     np.random.seed(seed)
     combinations = np.array(list(product(*params.values())))
     np.random.shuffle(combinations)
